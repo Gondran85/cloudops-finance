@@ -74,6 +74,59 @@ project, organized by phase.
 
 ---
 
-## Phase 2 — Networking (To be filled)
+## Phase 2 — Networking (Date: 16-05-2026)
 
-*Pending completion.*
+### What was accomplished
+- Created dedicated VPC `cloudops-vpc` with CIDR `10.0.0.0/16`
+- Designed four-subnet layout across two AZs (us-east-1a and us-east-1b)
+- Created and attached an Internet Gateway
+- Configured public route table (with route to IGW) and private route table (local only)
+- Implemented three-tier Security Groups using SG-to-SG references
+- Applied consistent tagging across all resources
+
+### Key learnings
+
+1. **CIDR planning is permanent.** VPC CIDR cannot be changed after creation 
+   (only extended). Choosing `10.0.0.0/16` upfront gave plenty of room to grow 
+   without overlap with on-prem networks (typically 192.168.x.x).
+
+2. **Subnets belong to AZs, route tables belong to VPCs.** Each subnet is 
+   pinned to one Availability Zone. Route tables are VPC-wide and applied 
+   to subnets through associations.
+
+3. **The "public" or "private" of a subnet is determined by its route table.** 
+   A subnet only becomes public when its associated route table has a route 
+   to an Internet Gateway. The subnet name is just a label for humans.
+
+4. **SG-to-SG references > CIDR references.** Referencing another Security 
+   Group as the source makes the rule dynamic and tied to identity rather 
+   than IP address. New instances joining the source SG automatically inherit 
+   access.
+
+5. **Tags pay off later.** Tagging consistently across VPC components means 
+   that Tag Editor and Cost Allocation Tags can show resource counts and 
+   costs grouped by project, environment, and tier without rework.
+
+### Mistakes I avoided
+- Using the default VPC (insecure defaults)
+- Placing all subnets in a single AZ (no resilience)
+- Allowing `0.0.0.0/0` to access the database SG
+- Forgetting to associate the public route table with public subnets 
+  (subnets would default to the private route table and lose internet access)
+
+### Decisions and trade-offs
+- **Skipped NAT Gateway** to stay in Free Tier (~$32/month savings). 
+  Private resources will use VPC Endpoints or Systems Manager for outbound 
+  needs in Phase 3.
+- **Skipped IPv6** to reduce complexity. Can be added later if needed.
+- **Default NACLs** kept as allow-all because Security Groups already 
+  enforce strict access. In a production environment, NACLs would add 
+  another defense layer.
+
+### Time invested
+- Phase 2 total: approximately 8 hours over three days.
+
+### What I'll do next
+- **Phase 3 — Compute and Data:** Launch EC2 instances in private subnets, 
+  provision RDS PostgreSQL Multi-AZ, create S3 buckets, set up the ALB, 
+  configure IAM Roles, and deploy the Flask application.
