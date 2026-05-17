@@ -32,7 +32,7 @@ chown -R cloudops:cloudops /opt/cloudops
 # For this project we copy from a public GitHub repo.
 # In production, code would come from a CI/CD pipeline or S3.
 cd /opt/cloudops
-git clone https://github.com/YOUR_USERNAME/cloudops-finance.git app || true
+git clone https://github.com/gondran85/cloudops-finance.git app || true
 cd app/src
 
 # ----------------------------------------------------------------------------
@@ -57,7 +57,7 @@ Group=cloudops
 WorkingDirectory=/opt/cloudops/app/src
 Environment="AWS_REGION=us-east-1"
 Environment="DB_SECRET_NAME=cloudops/db/credentials"
-Environment="DB_HOST=REPLACE_WITH_RDS_ENDPOINT"
+Environment="DB_HOST=cloudops-finance-db.cc1kemme8mqt.us-east-1.rds.amazonaws.com"
 Environment="DB_PORT=5432"
 Environment="DB_NAME=cloudops"
 ExecStart=/opt/cloudops/venv/bin/gunicorn --bind 127.0.0.1:5000 --workers 2 app:app
