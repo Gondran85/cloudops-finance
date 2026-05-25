@@ -36,7 +36,7 @@ chown -R cloudops:cloudops /opt/cloudops
 # ----------------------------------------------------------------------------
 # Code is versioned in GitHub but deployed via S3, so the private instance
 # never needs a route to the internet. The S3 Gateway VPC Endpoint is free.
-S3_BUCKET="cloudops-static-ACCOUNTID"   # replace ACCOUNTID with your account number
+S3_BUCKET="cloudops-static-765936999166"   # replace ACCOUNTID with your account number
 cd /opt/cloudops
 mkdir -p app/src
 aws s3 cp "s3://${S3_BUCKET}/app/" /opt/cloudops/app/src/ --recursive --region us-east-1
