@@ -4,6 +4,10 @@ CloudOps Finance — Main Flask Application.
 A simple personal finance tracker demonstrating a 3-tier highly available
 architecture on AWS. Users register income and expense entries; the app
 persists them to RDS PostgreSQL and displays summaries.
+
+All database connection details (host, port, dbname, user, password) are
+read from AWS Secrets Manager at runtime via the EC2 instance IAM role.
+No endpoint or credential is hardcoded, so this file is safe in a public repo.
 """
 
 import json
@@ -18,12 +22,11 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 # ----------------------------------------------------------------------------
-# Configuration via environment variables (set by systemd unit)
+# Configuration via environment variables (set by systemd unit).
+# Only non-sensitive values live here; connection details come from the secret.
 # ----------------------------------------------------------------------------
-
-DB_HOST = os.environ.get("DB_HOST", "localhost")
-DB_PORT = os.environ.get("DB_PORT", "5432")
-DB_NAME = os.environ.get("DB_NAME", "cloudops")
+AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
+DB_SECRET_NAME = os.environ.get("DB_SECRET_NAME", "cloudops/db/credentials")
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
