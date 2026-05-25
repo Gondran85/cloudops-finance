@@ -3,12 +3,17 @@
 # CloudOps Finance — EC2 Bootstrap Script
 # ============================================================================
 # This script is executed as user_data when an EC2 instance is launched.
-# It installs system dependencies, fetches application code, installs Python
-# packages, configures Nginx as a reverse proxy, and starts the Flask app
-# as a systemd service.
+# It installs system dependencies, fetches application code from S3, installs
+# Python packages, configures Nginx as a reverse proxy, and starts the Flask
+# app as a systemd service.
 #
 # Target OS: Amazon Linux 2023
 # Runs as: root
+#
+# No secrets or endpoints are hardcoded here. The application reads ALL
+# database connection details (host, port, dbname, user, password) from
+# AWS Secrets Manager at runtime, using the EC2 instance IAM role.
+# This file is therefore safe to keep in a public repository.
 # ============================================================================
 
 set -euxo pipefail
@@ -17,7 +22,7 @@ set -euxo pipefail
 # 1. Update system and install OS packages
 # ----------------------------------------------------------------------------
 dnf update -y
-dnf install -y python3 python3-pip git nginx postgresql15
+dnf install -y python3 python3-pip nginx postgresql15
 
 # ----------------------------------------------------------------------------
 # 2. Create application directory and user
@@ -27,12 +32,15 @@ mkdir -p /opt/cloudops
 chown -R cloudops:cloudops /opt/cloudops
 
 # ----------------------------------------------------------------------------
-# 3. Clone application repository (or fetch from S3 in production)
+# 3. Fetch application code from S3 (no internet egress required)
 # ----------------------------------------------------------------------------
-# For this project we copy from a public GitHub repo.
-# In production, code would come from a CI/CD pipeline or S3.
+# Code is versioned in GitHub but deployed via S3, so the private instance
+# never needs a route to the internet. The S3 Gateway VPC Endpoint is free.
+S3_BUCKET="cloudops-static-ACCOUNTID"   # replace ACCOUNTID with your account number
 cd /opt/cloudops
-git clone https://github.com/gondran85/cloudops-finance.git app || true
+mkdir -p app/src
+aws s3 cp "s3://${S3_BUCKET}/app/" /opt/cloudops/app/src/ --recursive --region us-east-1
+chown -R cloudops:cloudops /opt/cloudops
 cd app/src
 
 # ----------------------------------------------------------------------------
@@ -45,6 +53,8 @@ python3 -m venv /opt/cloudops/venv
 # ----------------------------------------------------------------------------
 # 5. Configure Flask as a systemd service
 # ----------------------------------------------------------------------------
+# Only non-sensitive config here. Host/port/dbname/user/password all come
+# from the secret named below, resolved by the app at runtime.
 cat > /etc/systemd/system/cloudops.service <<'EOF'
 [Unit]
 Description=CloudOps Finance Flask Application
@@ -57,9 +67,6 @@ Group=cloudops
 WorkingDirectory=/opt/cloudops/app/src
 Environment="AWS_REGION=us-east-1"
 Environment="DB_SECRET_NAME=cloudops/db/credentials"
-Environment="DB_HOST=cloudops-finance-db.cc1kemme8mqt.us-east-1.rds.amazonaws.com"
-Environment="DB_PORT=5432"
-Environment="DB_NAME=cloudops"
 ExecStart=/opt/cloudops/venv/bin/gunicorn --bind 127.0.0.1:5000 --workers 2 app:app
 Restart=on-failure
 RestartSec=5
