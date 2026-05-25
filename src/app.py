@@ -20,8 +20,7 @@ from sqlalchemy.orm import sessionmaker
 # ----------------------------------------------------------------------------
 # Configuration via environment variables (set by systemd unit)
 # ----------------------------------------------------------------------------
-AWS_REGION = os.environ.get("AWS_REGION", "us-east-1")
-DB_SECRET_NAME = os.environ.get("DB_SECRET_NAME", "cloudops/db/credentials")
+
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = os.environ.get("DB_PORT", "5432")
 DB_NAME = os.environ.get("DB_NAME", "cloudops")
@@ -42,11 +41,14 @@ def get_db_credentials() -> dict:
 
 
 def build_database_url() -> str:
-    """Construct the SQLAlchemy database URL from secret + env vars."""
+    """Construct the SQLAlchemy database URL entirely from the secret."""
     creds = get_db_credentials()
     user = creds["username"]
     password = creds["password"]
-    return f"postgresql+psycopg2://{user}:{password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    host = creds["host"]
+    port = creds.get("port", 5432)
+    dbname = creds.get("dbname", "cloudops")
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
 
 
 # ----------------------------------------------------------------------------
