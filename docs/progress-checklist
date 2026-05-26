@@ -1,0 +1,87 @@
+# CloudOps Finance — Progress Checklist
+
+> Status of the build across all 5 phases. Updated as of the current session.
+> Region: **us-east-1** | Account: 765936999166
+
+---
+
+## Phase 1 — Foundation ✅ COMPLETE
+
+- [x] Root account hardened (MFA on root, no root access keys)
+- [x] IAM user `cloudops-admin` (MFA + AdministratorAccess + AWS CLI)
+- [x] Budgets: $1, $5, $10 + forecast budget ($20)
+- [x] CloudTrail multi-region with log file validation
+- [x] S3 bucket `cloudtrail-logs-<account>-cloudops` with MFA-delete-deny bucket policy
+- [x] Cost Explorer + Cost Anomaly Detection (threshold $1)
+- [x] GitHub repo `cloudops-finance` created (public, MIT)
+
+## Phase 2 — Networking ✅ COMPLETE (validated, 6 tests passed)
+
+- [x] VPC `cloudops-vpc` (10.0.0.0/16)
+- [x] 4 subnets: 2 public + 2 private (us-east-1a / us-east-1b)
+- [x] Internet Gateway `cloudops-igw` attached
+- [x] Route tables: public (route to IGW) + private (local only), correctly associated
+- [x] 3 Security Groups, layered, SG-to-SG references (`sg-alb`, `sg-web`, `sg-db`)
+- [x] Consistent tags (11 resources validated in Tag Editor)
+
+## Phase 3 — Compute & Data 🔄 IN PROGRESS
+
+### Part 3A — IAM, storage, database, secrets ✅ COMPLETE
+
+- [x] IAM Role `cloudops-ec2-role` (SSM Core + S3 ReadOnly + SecretsManager RW)
+- [x] S3 buckets `cloudops-static-765936999166` + `cloudops-uploads-765936999166` (private, versioned, SSE-S3)
+- [x] DB Subnet Group `cloudops-db-subnet-group` (private-subnet-a + b)
+- [x] RDS PostgreSQL `cloudops-finance-db` (db.t3.micro, single-AZ, private, no public access)
+- [x] Secrets Manager `cloudops/db/credentials` (has host, port, username, password, dbname)
+
+### Code preparation ✅ COMPLETE (this session)
+
+- [x] `app.py` fixed: reads ALL connection details from the secret (no hardcoded endpoint); validated (compiles, no undefined names)
+- [x] `ec2-bootstrap.sh` fixed: S3 deploy instead of git clone; no secrets/endpoints hardcoded
+- [x] Code pushed to GitHub (`src/`)
+- [x] Code uploaded to S3 at `s3://cloudops-static-765936999166/app/` (correct structure, no duplicate `src/`)
+
+### Part 3B — Compute, deploy, load balancing ⏳ IN PROGRESS
+
+- [ ] **Step 2 — VPC Endpoints** ← YOU ARE HERE
+  - [ ] Security Group `sg-vpce` (inbound 443 from sg-web)
+  - [ ] Interface endpoint `ssm` (2 private subnets, sg-vpce, Private DNS on)
+  - [ ] Interface endpoint `ssmmessages`
+  - [ ] Interface endpoint `ec2messages`
+  - [ ] Gateway endpoint `s3` (attached to private route table — FREE)
+- [ ] **Step 3 — Launch Template** `cloudops-web-template` (AL2023, t2.micro, sg-web, IAM role, user_data = bootstrap, NO public IP, NO key pair)
+- [ ] **Step 4 — Launch 2 EC2** (one in private-subnet-a, one in private-subnet-b)
+- [ ] **Step 5 — Initialize DB + test internally**
+  - [ ] Connect via Session Manager (no SSH)
+  - [ ] Run `db-init.sql` once (creates `entries` table + sample data)
+  - [ ] `curl localhost:5000/health` returns ok — app works BEFORE spending on ALB
+- [ ] **Step 6 — ALB + Target Group** (billable — do this near recording time)
+  - [ ] ALB `cloudops-alb` (public subnets, sg-alb)
+  - [ ] Target Group `cloudops-tg-web` (health check `/health`)
+- [ ] **Step 7 — Demo capture** (screenshots + 3–5 min video via ALB DNS)
+- [ ] **Step 8 — Teardown** (see demo-teardown-checklist.md)
+
+## Phase 4 — Observability ⏳ PENDING
+
+- [ ] CloudWatch dashboards + alarms
+- [ ] SNS notifications
+- [ ] WAF (justify against the public upload form — OWASP, rate limiting)
+- [ ] Shield Standard (document the edge protection)
+
+## Phase 5 — IaC & Polish ⏳ PENDING
+
+- [ ] Terraform (`iac/`) reproducing the architecture
+- [ ] CI lint workflow (`.github/workflows/lint.yml`) — catches bugs like the NameError before deploy
+- [ ] `cost-estimate.md` filled in
+- [ ] `well-architected-review.md` filled in
+- [ ] Demo video edited
+- [ ] LinkedIn post
+
+---
+
+## Known lessons learned to document (security.md / lessons-learned.md)
+
+- RDS password was set manually; best practice is RDS-managed credentials in Secrets Manager (auto-rotation, no plaintext exposure).
+- `SecretsManagerReadWrite` and `AmazonS3ReadOnlyAccess` are broad managed policies; production would use inline policies scoped to specific ARNs (least privilege).
+- A refactor that crossed two files (app.py + bootstrap) introduced a `NameError` caught only by running the code — the argument for the CI lint planned in Phase 5.
+- RDS is single-AZ for cost; architecture is "Multi-AZ ready" — promotion is a one-click toggle with no app change.
