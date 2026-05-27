@@ -36,10 +36,16 @@ chown -R cloudops:cloudops /opt/cloudops
 # ----------------------------------------------------------------------------
 # Code is versioned in GitHub but deployed via S3, so the private instance
 # never needs a route to the internet. The S3 Gateway VPC Endpoint is free.
-S3_BUCKET="cloudops-static-765936999166"   # replace ACCOUNTID with your account number
+# Wheels are excluded here — they are downloaded separately in Section 4
+# into their own directory to keep app code and build artifacts isolated.
+S3_BUCKET="cloudops-static-765936999166"   # Bucket holds app code and pre-built Python wheels
+
 cd /opt/cloudops
 mkdir -p app/src
-aws s3 cp "s3://${S3_BUCKET}/app/" /opt/cloudops/app/src/ --recursive --region us-east-1
+aws s3 cp "s3://${S3_BUCKET}/app/" /opt/cloudops/app/src/ \
+  --recursive \
+  --region us-east-1 \
+  --exclude "wheels/*"
 chown -R cloudops:cloudops /opt/cloudops
 cd app/src
 
