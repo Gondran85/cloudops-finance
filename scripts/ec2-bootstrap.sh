@@ -44,11 +44,37 @@ chown -R cloudops:cloudops /opt/cloudops
 cd app/src
 
 # ----------------------------------------------------------------------------
-# 4. Install Python dependencies in a virtual environment
+# 4. Install Python dependencies from S3 (offline — no PyPI access required)
 # ----------------------------------------------------------------------------
+# The EC2 instance lives in a private subnet with no NAT Gateway, so it cannot
+# reach PyPI on the public internet. Python wheels are pre-packaged in S3 and
+# installed via --no-index, ensuring deterministic, network-isolated installs.
+# This is the "deployment artifact" pattern used in regulated environments.
+
+WHEELS_DIR="/opt/cloudops/wheels"
+mkdir -p "$WHEELS_DIR"
+
+echo "Downloading pre-built wheels from S3..."
+aws s3 cp "s3://${S3_BUCKET}/app/wheels/" "$WHEELS_DIR/" \
+  --recursive \
+  --region us-east-1
+
+echo "Creating Python virtual environment..."
 python3 -m venv /opt/cloudops/venv
-/opt/cloudops/venv/bin/pip install --upgrade pip
-/opt/cloudops/venv/bin/pip install -r /opt/cloudops/app/src/requirements.txt
+
+echo "Upgrading pip (offline, from S3 wheels)..."
+/opt/cloudops/venv/bin/pip install \
+  --no-index \
+  --find-links="$WHEELS_DIR" \
+  --upgrade pip
+
+echo "Installing application dependencies (offline, from S3 wheels)..."
+/opt/cloudops/venv/bin/pip install \
+  --no-index \
+  --find-links="$WHEELS_DIR" \
+  -r /opt/cloudops/app/src/requirements.txt
+
+echo "Python environment ready."
 
 # ----------------------------------------------------------------------------
 # 5. Configure Flask as a systemd service
