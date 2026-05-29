@@ -286,3 +286,136 @@ project, organized by phase.
   console-built resources, a `build-wheels.sh` script for reproducible wheel
   builds, cost estimate and Well-Architected review documents, and a LinkedIn
   post.
+
+  ## Phase 4 — Observability (Date: 28-29/05/2026)
+
+### What was accomplished
+- Created SNS topic `cloudops-alerts` and confirmed an email subscription as
+  the notification channel
+- Created seven CloudWatch alarms covering RDS (CPU, free storage, database
+  connections) and both EC2 instances (CPU, status check), all publishing to
+  the SNS topic
+- Validated the full alarm-to-email path end-to-end by forcing one alarm to
+  the `ALARM` state and confirming the email arrived
+- Built a CloudWatch dashboard (`CloudOpsFinance`) with eight metric widgets
+  and an alarm-status panel, defined declaratively in JSON and applied via a
+  `put-dashboard` wrapper script (`iac/create-dashboard.sh`)
+- Stayed entirely within the Free Tier (10 alarms free, 3 dashboards free,
+  basic metrics free)
+
+### Key learnings
+
+1. **SNS Standard vs FIFO is a one-shot decision.** Selecting FIFO at topic
+   creation locked subscriptions to `Amazon SQS` and `AWS Lambda` only —
+   email was not even offered in the protocol dropdown. The topic type
+   cannot be changed after creation; the only fix was to delete and
+   recreate as Standard. FIFO is for ordered, deduplicated machine-to-machine
+   pipelines, not for human alerting.
+
+2. **Subscription ARN and Topic ARN look similar but behave differently.**
+   The Topic ARN ends at the topic name
+   (`arn:aws:sns:us-east-1:765936999166:cloudops-alerts`); a Subscription
+   ARN appends a UUID suffix. Alarm actions must reference the Topic ARN —
+   pointing them at a Subscription ARN either fails silently or notifies
+   nothing. A small naming detail with operational consequences.
+
+3. **Status-check alarms must treat missing data as `notBreaching`.** Five
+   alarms moved to `OK` within a minute of creation; the two `StatusCheckFailed`
+   alarms stuck in `INSUFFICIENT_DATA` because the metric only publishes
+   values consistently when a failure is being reported, and the default
+   `missing` treatment leaves the alarm in limbo while healthy. Switching
+   to `notBreaching` resolved it: no failure data = the instance is fine =
+   state `OK`. An alarm parked in `INSUFFICIENT_DATA` is an alarm whose
+   alerting behaviour you have not actually validated.
+
+4. **A created alarm is not a tested alarm.** Configuration is not proof.
+   Running `aws cloudwatch set-alarm-state --state-value ALARM` forced one
+   alarm into the alarming state without manipulating the underlying metric,
+   exercising the full notification path. The email arrived. Only at that
+   point was the channel proven, not merely configured. The same principle
+   applies to backups and failovers — untested means unknown.
+
+5. **Dashboards belong in code, not in clicks.** Authoring eight widgets
+   through the console means roughly forty clicks across modal dialogs,
+   easy to inconsistencize, impossible to review in a pull request. The
+   same dashboard expressed as JSON (`iac/cloudwatch-dashboard.json`) and
+   applied with `put-dashboard` is reproducible, versioned, and reviewable.
+   `put-dashboard` is also idempotent — re-running keeps the live dashboard
+   in sync with the definition.
+
+6. **Metric math turns raw units into a readable dashboard.**
+   `FreeStorageSpace` is reported in bytes; the raw number on a chart axis
+   (`8589934592`) is meaningless at a glance. The widget uses an expression
+   `m1/1024/1024/1024` so the axis reads in gigabytes (`8 GB`). Same trick
+   converts `FreeableMemory` to MB. Polish that costs five characters of
+   JSON and saves the reader from doing arithmetic in their head.
+
+7. **Real dashboards reveal surprising truths.** `EC2 Network In` shows a
+   steady oscillation between roughly 8 KB and 22 KB per period, while
+   `CPU Utilization` is flat near zero. With no ALB attached, no user
+   traffic is reaching the instances — the network activity is housekeeping
+   from the SSM agent, OS heartbeats, and metric publication. The
+   discrepancy looks wrong until you understand what is actually being
+   measured. A flat dashboard with no traffic is the right answer to the
+   wrong question; for a portfolio demo, generating synthetic load with
+   internal `curl` against `localhost` is honest because it represents real
+   handlers responding, just not from the internet.
+
+8. **Free Tier covers basic observability comfortably.** Ten alarms free,
+   three dashboards free, basic five-minute metrics free, SNS email free
+   to one address. The Phase 4 stack added effectively zero cost. The
+   one-minute detailed metrics for EC2 cost extra and were deliberately
+   avoided — five-minute averages are enough for an operator alert without
+   spending into surprise bills.
+
+9. **`db.t3.micro` runs with very little headroom.** Freeable Memory hovers
+   around 200 MB on a one-GB instance class. The current workload tolerates
+   it, but the headroom is thin enough that any heavy query or schema
+   migration could trigger OOM behaviour. No alarm was added for memory in
+   this phase, but the observation is exactly the kind of signal that
+   running a dashboard for ten minutes reveals and design documents never
+   mention.
+
+### Mistakes I avoided
+- Skipping the test of the alarm-to-email path. The configuration looked
+  right; only `set-alarm-state` proved the channel worked.
+- Leaving the two status-check alarms in `INSUFFICIENT_DATA` because they
+  "looked harmless". An alarm in an ambiguous state cannot be trusted to
+  fire when it should.
+- Building the dashboard click-by-click in the console and not preserving
+  the definition. A console-only dashboard cannot be reviewed, replicated,
+  or rolled back.
+- Adding a memory alarm at threshold-of-the-moment values without first
+  observing the real baseline (~200 MB freeable). Premature thresholds
+  generate noise; a few minutes of dashboard observation informs better
+  numbers.
+
+### Decisions and trade-offs
+- **Skipped WAF and Shield Advanced.** The role target is infrastructure-
+  focused, not application security. Shield Standard is enabled by default
+  and free on every ALB/CloudFront; documenting that fact suffices. WAF was
+  also blocked by the absence of an ALB (deleted earlier in teardown), and
+  the additional cost did not justify recreating one purely to attach WAF.
+- **Per-instance EC2 alarms instead of aggregate.** Costs four alarms
+  instead of two, well inside the Free Tier limit, but identifies *which*
+  instance failed — operationally far more useful than knowing "an
+  instance" is unhealthy.
+- **Standard metric resolution (five-minute) over detailed (one-minute).**
+  Detailed metrics carry a per-metric charge that adds up across instances;
+  standard resolution is enough for the alarm thresholds chosen here.
+- **Dashboard written by hand in JSON** rather than generated from a tool
+  like CloudWatch's "view source" export. Hand-authoring forced understanding
+  of the widget schema (positions, metric IDs, expressions), which is the
+  point of doing it in a portfolio project.
+
+### Time invested
+- Phase 4 total: approximately 3 hours, including the SNS FIFO recovery,
+  the status-check alarm fix, and dashboard authoring.
+
+### What I'll do next
+- **Phase 5 — Infrastructure as Code and polish:** Terraform to codify the
+  console-built network, compute, data, and observability resources; a
+  `cost-estimate.md` capturing the actual run costs measured during the
+  project; a `well-architected-review.md` mapping the architecture against
+  the AWS Well-Architected Framework pillars; and a final LinkedIn post
+  summarising what the project demonstrates.
