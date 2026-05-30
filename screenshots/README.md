@@ -13,7 +13,7 @@ referenced by relative path, so the links never expire.
 ## Phase 2 — Networking
 
 ### VPC creation
-![VPC creation](02-Screenshot Criacao VPC.jpg)
+![VPC creation](02-Screenshot-Criacao-VPC.jpg)
 
 ### Four subnets (2 public + 2 private) across two AZs
 ![Subnets across two AZs](03-subnets-4-across-2az.jpg)
