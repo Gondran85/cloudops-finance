@@ -1,0 +1,170 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0, "y": 0, "width": 24, "height": 1,
+      "properties": {
+        "markdown": "## EC2 — Application Tier"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 1, "width": 8, "height": 6,
+      "properties": {
+        "title": "EC2 CPU Utilization (%)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "metrics": [
+          [ "AWS/EC2", "CPUUtilization", "InstanceId", "i-08294d783665aa87f", { "label": "web-a (us-east-1a)" } ],
+          [ "...", "i-0524f8685953b7834", { "label": "web-b (us-east-1b)" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "yAxis": { "left": { "min": 0, "max": 100 } },
+        "annotations": {
+          "horizontal": [
+            { "label": "Alarm threshold (80%)", "value": 80, "color": "#d62728" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8, "y": 1, "width": 8, "height": 6,
+      "properties": {
+        "title": "EC2 Network In (bytes)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "metrics": [
+          [ "AWS/EC2", "NetworkIn", "InstanceId", "i-08294d783665aa87f", { "label": "web-a" } ],
+          [ "...", "i-0524f8685953b7834", { "label": "web-b" } ]
+        ],
+        "period": 300,
+        "stat": "Sum"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16, "y": 1, "width": 8, "height": 6,
+      "properties": {
+        "title": "EC2 Status Check Failed",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "metrics": [
+          [ "AWS/EC2", "StatusCheckFailed", "InstanceId", "i-08294d783665aa87f", { "label": "web-a" } ],
+          [ "...", "i-0524f8685953b7834", { "label": "web-b" } ]
+        ],
+        "period": 60,
+        "stat": "Maximum",
+        "yAxis": { "left": { "min": 0, "max": 1 } }
+      }
+    },
+    {
+      "type": "text",
+      "x": 0, "y": 7, "width": 24, "height": 1,
+      "properties": {
+        "markdown": "## RDS — Data Tier (cloudops-finance-db)"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 8, "width": 6, "height": 6,
+      "properties": {
+        "title": "RDS CPU Utilization (%)",
+        "view": "timeSeries",
+        "region": "us-east-1",
+        "metrics": [
+          [ "AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", "cloudops-finance-db" ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "yAxis": { "left": { "min": 0, "max": 100 } },
+        "annotations": {
+          "horizontal": [
+            { "label": "Alarm threshold (80%)", "value": 80, "color": "#d62728" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 6, "y": 8, "width": 6, "height": 6,
+      "properties": {
+        "title": "RDS Database Connections",
+        "view": "timeSeries",
+        "region": "us-east-1",
+        "metrics": [
+          [ "AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "cloudops-finance-db" ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "annotations": {
+          "horizontal": [
+            { "label": "Alarm threshold (40)", "value": 40, "color": "#d62728" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 8, "width": 6, "height": 6,
+      "properties": {
+        "title": "RDS Free Storage Space (GB)",
+        "view": "timeSeries",
+        "region": "us-east-1",
+        "metrics": [
+          [ { "expression": "m1/1024/1024/1024", "label": "Free storage (GB)", "id": "e1" } ],
+          [ "AWS/RDS", "FreeStorageSpace", "DBInstanceIdentifier", "cloudops-finance-db", { "id": "m1", "visible": false } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "annotations": {
+          "horizontal": [
+            { "label": "Alarm threshold (2 GB)", "value": 2, "color": "#d62728" }
+          ]
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 18, "y": 8, "width": 6, "height": 6,
+      "properties": {
+        "title": "RDS Freeable Memory (MB)",
+        "view": "timeSeries",
+        "region": "us-east-1",
+        "metrics": [
+          [ { "expression": "m1/1024/1024", "label": "Freeable memory (MB)", "id": "e1" } ],
+          [ "AWS/RDS", "FreeableMemory", "DBInstanceIdentifier", "cloudops-finance-db", { "id": "m1", "visible": false } ]
+        ],
+        "period": 300,
+        "stat": "Average"
+      }
+    },
+    {
+      "type": "text",
+      "x": 0, "y": 14, "width": 24, "height": 1,
+      "properties": {
+        "markdown": "## Alarm Status (7 alarms)"
+      }
+    },
+    {
+      "type": "alarm",
+      "x": 0, "y": 15, "width": 24, "height": 4,
+      "properties": {
+        "title": "CloudOps Finance — All Alarms",
+        "alarms": [
+          "arn:aws:cloudwatch:us-east-1:765936999166:alarm:cloudops-rds-low-storage",
+          "arn:aws:cloudwatch:us-east-1:765936999166:alarm:cloudops-rds-high-cpu",
+          "arn:aws:cloudwatch:us-east-1:765936999166:alarm:cloudops-rds-high-connections",
+          "arn:aws:cloudwatch:us-east-1:765936999166:alarm:cloudops-ec2-web-a-high-cpu",
+          "arn:aws:cloudwatch:us-east-1:765936999166:alarm:cloudops-ec2-web-a-status-check",
+          "arn:aws:cloudwatch:us-east-1:765936999166:alarm:cloudops-ec2-web-b-high-cpu",
+          "arn:aws:cloudwatch:us-east-1:765936999166:alarm:cloudops-ec2-web-b-status-check"
+        ]
+      }
+    }
+  ]
+}
