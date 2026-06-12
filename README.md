@@ -205,8 +205,7 @@ Documented at the end of every phase, including the offline-dependency saga, the
 
 ## 👤 Author
 
-**Jefferson Santos Gondran** — Aspiring Cloud Engineer
-
+**Jefferson Santos Gondran** — Cloud Engineer in training | AWS projects portfolio
 🔗 [LinkedIn](https://linkedin.com/in/jefferson-santos-2136b2264)
 
 ---
